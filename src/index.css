@@ -1,0 +1,44 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --beacon-amber:  #FCC287;
+  --beacon-orange: #E36037;
+  --beacon-blue:   #00ACD9;
+  --beacon-ivory:  #FFFFF0;
+  --beacon-dark:   #07242D;
+  --beacon-card:   #0D3540;
+  --beacon-muted:  #1A4A58;
+  --beacon-border: #1E5468;
+  --radius: 0.75rem;
+}
+
+* {
+  border-color: var(--beacon-border);
+}
+
+body {
+  background-color: var(--beacon-dark);
+  color: var(--beacon-ivory);
+  font-family: "Inter", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Score gradient bar */
+.score-bar-fill {
+  background: linear-gradient(90deg, #00ACD9 0%, #E36037 100%);
+}
+
+/* Blurred match card */
+.match-blurred {
+  filter: blur(6px);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--beacon-dark); }
+::-webkit-scrollbar-thumb { background: var(--beacon-border); border-radius: 3px; }
