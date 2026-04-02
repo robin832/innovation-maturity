@@ -221,7 +221,166 @@ Session tracking is anonymous by default. Interaction events record behavioral s
 
 ---
 
-## 10. Vision: Where This Goes
+## 10. AI Capabilities Roadmap
+
+The current AI layer is a starting point — two sequential LLM calls that produce generated (not grounded) output. The roadmap below describes how to progressively replace generation with retrieval, inference with evidence, and stateless calls with memory-aware intelligence.
+
+### 10.1 Internal Knowledge Base (RAG Foundation)
+
+The most impactful upgrade is grounding all AI output in The Beacon's own internal data rather than having the AI invent it. This means building a structured knowledge base covering:
+
+- **Members** — Every current member company: who they are, what they do, what technologies they work with, what problems they solve, what past collaborations they've been involved in
+- **Services & packages** — Full detail on all membership tiers and à la carte programs: scope, outcomes, case studies, ideal fit criteria
+- **Technologies** — A taxonomy of relevant technology domains (AI/ML, IoT, robotics, cleantech, etc.) with descriptions and use cases relevant to The Beacon's ecosystem
+- **Use cases & success stories** — Documented examples of matches that led to pilots, partnerships, or programs
+- **Events & programs** — Historical and upcoming events with context about audience, themes, and outcomes
+
+All of this is stored with vector embeddings (using `pgvector` in Supabase and `text-embedding-3-small`). When the AI needs to generate matches, propose offerings, or recommend events, it retrieves the most semantically relevant entries from this knowledge base and reasons over real data — it never invents.
+
+This is the single most important architectural change to make. It makes every AI output legally sound, factually accurate, and directly attributable to The Beacon's actual capabilities.
+
+### 10.2 Multi-Step Research Agent
+
+Replace the single `analyze_company` LLM call with an **agent that uses tools** to actively research a company before scoring it:
+
+```
+ResearchAgent
+├── tool: search_web(query)          → Tavily / Bing Search API
+├── tool: fetch_page(url)            → structured content extraction
+├── tool: search_patents(company)    → EPO / Google Patents API
+├── tool: search_news(company)       → recent announcements & press
+└── tool: get_sector_benchmark(industry, dimension) → internal DB
+```
+
+The agent decides which sources to consult, in what order, and when it has sufficient evidence to score each dimension. Every score comes with a real citation — an actual URL, document, or data point — not a synthesized claim. This transforms the output from "plausible narrative" to "evidence-backed assessment."
+
+The agent also calls `get_sector_benchmark` to contextualise scores against accumulated data from previous analyses, so a company sees not just their score but where they sit relative to peers.
+
+### 10.3 Industry Knowledge Scraper
+
+A parallel system to the Innovation Maturity tool: an **industry intelligence pipeline** that continuously scrapes and indexes publicly available knowledge from key industrial sectors.
+
+**What it collects:**
+- Industry association websites and publications
+- Trade media (sector-specific news, trend reports)
+- Technology vendor blogs and whitepapers
+- Conference proceedings and keynote summaries
+- EU innovation funding announcements and project outcomes
+- Academic and applied research from relevant Belgian/European institutions
+
+**How it's processed:**
+- Scraped content is chunked, embedded, and stored in a dedicated `industry_knowledge` vector store
+- A taxonomy of sectors, technologies, and innovation themes is maintained as a structured knowledge graph
+- New content is ingested on a scheduled basis (weekly or daily per source)
+
+**What it enables:**
+- The analysis agent can retrieve real sector context when assessing a company ("in the Belgian port logistics sector, the dominant digital transformation theme in 2025 is autonomous terminal operations")
+- The Beacon's marketing team can query the knowledge base directly for content inspiration, trend spotting, and thought leadership material
+- The platform can surface sector-specific benchmarks grounded in actual industry intelligence rather than general LLM knowledge
+- Prospection: identify companies mentioned in industry news that fit The Beacon's target profile but aren't yet members
+
+This knowledge base becomes a proprietary asset that compounds over time — the longer it runs, the more comprehensive The Beacon's view of its target industries becomes.
+
+### 10.4 Company Memory & Change Detection
+
+Every analysis is stored with a timestamp and linked to a company record. When the same company is analyzed again, the system:
+
+- Retrieves the previous analysis from the database
+- Highlights score changes per dimension with directional indicators
+- Generates a delta narrative: *"Since January 2025, Bekaert has announced a new AI manufacturing initiative (+0.5 on Digital Transformation) and published two new partnerships with university research centers (+0.5 on External Partnerships)."*
+- Flags which innovation gaps have been addressed and which remain open
+
+This is valuable for three audiences:
+1. **Companies** tracking their own progress over time
+2. **The Beacon's sales team** who can reference the delta in discovery calls
+3. **Member account managers** monitoring how existing members' innovation posture evolves
+
+### 10.5 Sector Intelligence & Benchmarking
+
+As analyses accumulate, the platform gains the ability to benchmark any company against real peer data:
+
+- *"Your Digital Transformation score of 2.5 places you in the 38th percentile of Belgian manufacturing companies analyzed on this platform"*
+- *"Companies in logistics with similar gap profiles most commonly start with an Innovation Challenge around predictive maintenance or fleet optimization"*
+- *"The average External Partnerships score in cleantech has increased 0.4 over the past 12 months, driven by EU Green Deal funding activity"*
+
+This requires no additional AI infrastructure — it's SQL aggregations over the `analyses` and `maturity_dimensions` tables, made available to the AI as tool outputs. The intelligence emerges from accumulated data.
+
+Sector intelligence reports derived from this data become a content marketing asset: published quarterly, shared with members, cited in industry media.
+
+### 10.6 Claim-Level Confidence Scoring
+
+Replace the single `dataConfidence: high | medium | low` field with per-claim confidence at the dimension level:
+
+- `evidence_found: boolean` — did the agent find a real source?
+- `source_quality: primary | secondary | inferred` — annual report vs. news article vs. LLM inference
+- `last_updated: date` — how fresh is the most recent source?
+- `corroboration_count: number` — how many independent sources agree?
+
+The AI scores a dimension only when it has evidence. When it doesn't, it says so explicitly with a lower-confidence indicator rather than inventing a plausible score. This builds long-term trust in the platform — users learn that a high-confidence score means something.
+
+### 10.7 Quality Control: Critique-Then-Revise
+
+Before returning an analysis, a self-critique loop reviews the output:
+
+```
+Step 1: Generate initial analysis
+Step 2: Critic reviews for:
+         — Claims without cited sources
+         — Scores inconsistent with the evidence described
+         — Innovation gaps that contradict stated strategic goals
+         — Implausibly high or low scores given company size and age
+Step 3: Revise agent corrects identified issues
+Step 4: Return final, reviewed analysis
+```
+
+This adds 2–3 seconds to generation time but meaningfully improves internal consistency and factual accuracy. The critique prompt encodes The Beacon's domain knowledge about what constitutes good evidence for each dimension.
+
+### 10.8 Conversational Follow-Up Agent
+
+After the report is generated, a contextual chat interface lets the user interrogate the analysis:
+
+> *"Why did we score low on Digital Transformation?"*
+> *"Which of the locked matches would be most relevant for our supply chain challenges?"*
+> *"What would we need to do to move from Innovation Active to Innovation Leader?"*
+> *"How do we compare to other companies in port logistics?"*
+
+The agent has full context of the company's analysis, access to The Beacon's knowledge base, and awareness of sector benchmarks. Questions about locked matches create a natural "book a call to unlock" moment without hard-selling. The conversation is stored per session so The Beacon's team can review it before a discovery call.
+
+### 10.9 Proposal Personalization from Outcomes
+
+As conversion data accumulates (which analyses led to bookings, which bookings became memberships, which programs were most successful for which company profiles), the AI gains a feedback signal:
+
+- Companies with score 2.5–3.0 in Partnerships who are in manufacturing → Innovation Challenge has the highest conversion rate as an entry point
+- Companies with high Digital Transformation gaps who are in logistics → Tech Tours to automation facilities convert well
+- Technology companies with < 3 years tenure → Tech Starter + direct intro to 2 relevant industrial members drives fastest value
+
+The AI uses this as additional context when ranking proposal options. Over time, the platform's recommendations become more accurate not because the model improves but because it learns from real outcomes.
+
+### 10.10 Parking Lot (Future Consideration)
+
+**Progressive streaming disclosure** — Rendering analysis content progressively as it's generated (summary first, then dimensions, then matches) rather than waiting for the full response. This doesn't reduce actual processing time but can improve perceived responsiveness. Worth revisiting once the core AI pipeline is stable and total generation time is well-understood.
+
+**Automated monitoring & alerts** — A background agent that re-analyzes tracked companies on a schedule and notifies The Beacon's team when a company's innovation posture shifts significantly (new announcement, funding round, strategic pivot). High value for account management but not required for the core platform.
+
+### AI Capabilities Priority Order
+
+| Capability | Impact | When to Build |
+|---|---|---|
+| Internal knowledge base (RAG) | Very high — fixes invented matches | Phase 1 |
+| Multi-step research agent | Very high — fixes invented evidence | Phase 1 |
+| Claim-level confidence scoring | Medium — improves trust | Phase 1 |
+| Critique-then-revise loop | Medium — improves consistency | Phase 1 |
+| Company memory & change detection | High — enables tracking | Phase 2 |
+| Industry knowledge scraper | Very high — proprietary intelligence | Phase 2 |
+| Sector benchmarking | Very high — differentiator | Phase 2 |
+| Conversational follow-up agent | High — conversion tool | Phase 2 |
+| Proposal personalization from outcomes | High — needs data first | Phase 3 |
+| Progressive streaming | Low-medium — UX only | Parking lot |
+| Automated monitoring & alerts | Medium — account management | Parking lot |
+
+---
+
+## 11. Vision: Where This Goes
 
 In its mature form, the Innovation Maturity Platform becomes The Beacon's primary growth and intelligence engine:
 
